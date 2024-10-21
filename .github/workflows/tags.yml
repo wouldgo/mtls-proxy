@@ -7,6 +7,9 @@ on:
 jobs:
   build_on_tag:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     env:
       DOCKER_REGISTRY: ghcr.io/wouldgo
       DOCKER_IMAGE: mtls-proxy
