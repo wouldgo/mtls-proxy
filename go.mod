@@ -5,7 +5,6 @@ go 1.22
 require (
 	github.com/breml/rootcerts v0.2.18
 	github.com/elazarl/goproxy v0.0.0-20240909085733-6741dbfc16a1
-	github.com/gorilla/websocket v1.5.3
 	github.com/jackc/pgx/v5 v5.7.1
 	github.com/pavlo-v-chernykh/keystore-go/v4 v4.5.0
 	github.com/prometheus/client_golang v1.20.5
