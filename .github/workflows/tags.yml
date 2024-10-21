@@ -36,6 +36,7 @@ jobs:
         name: Build
         run: |
           docker build \
+          -f cmd/proxy/Dockerfile \
           --tag ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:$(git tag --points-at HEAD | sed 's/v//g') \
           --push \
           .
