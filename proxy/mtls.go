@@ -2,12 +2,14 @@ package proxy
 
 import (
 	"crypto/tls"
+	"crypto/x509"
+	"errors"
 	"io"
 	"net/http"
 
+	"github.com/elazarl/goproxy"
 	log "github.com/wouldgo/mtls-proxy/logging"
 	"go.uber.org/zap"
-	"gopkg.in/elazarl/goproxy.v1"
 )
 
 var (
@@ -19,8 +21,9 @@ type Performer interface {
 }
 
 type mtlsPerformer struct {
-	log    *zap.Logger
-	client *http.Client
+	log                *zap.Logger
+	mtlsClient, client *http.Client
+	unauthErr          http.Response
 }
 
 type MTLSPerformerOpts struct {
@@ -29,33 +32,55 @@ type MTLSPerformerOpts struct {
 }
 
 func NewMtlsPerformer(mtlsPerformerOpts *MTLSPerformerOpts) (Performer, error) {
-	client := &http.Client{
-		// Transport: &http.Transport{
-		// 	TLSClientConfig: mtlsPerformerOpts.TlsConfig,
-		// },
+	mtlsClient := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: mtlsPerformerOpts.TlsConfig,
+		},
 	}
+	client := &http.Client{}
 
 	return &mtlsPerformer{
-		log:    mtlsPerformerOpts.Log.Logger,
-		client: client,
-	}, nil
-}
-
-func (m mtlsPerformer) Perform(req *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
-	m.log.Info("http connection", zap.String("host", req.URL.Host))
-
-	oldReqURI := req.RequestURI
-	req.RequestURI = ""
-	resp, err := m.client.Do(req)
-	if err != nil {
-		m.log.Sugar().Errorf("Error calling %+v: %w", req, err)
-		return req, &http.Response{
+		log:        mtlsPerformerOpts.Log.Logger,
+		mtlsClient: mtlsClient,
+		client:     client,
+		unauthErr: http.Response{
 			StatusCode: http.StatusUnauthorized,
 			Status:     http.StatusText(http.StatusUnauthorized),
 			Body:       io.NopCloser(unathorizedReader),
 			Header:     make(http.Header),
+		},
+	}, nil
+}
+
+func (m mtlsPerformer) Perform(req *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
+	m.log.Info("mtls performer is performing")
+	for _, header := range req.Header["Upgrade"] {
+		if header == "websocket" {
+			m.log.Info("request is a websocket passing it")
+			return req, nil
 		}
 	}
-	req.RequestURI = oldReqURI
+
+	m.log.Info("http connection", zap.String("host", req.URL.Host))
+	oldReqURI := req.RequestURI
+	defer func() {
+		req.RequestURI = oldReqURI
+	}()
+	req.RequestURI = ""
+	resp, err := m.mtlsClient.Do(req)
+	if err != nil {
+		var targetErr x509.UnknownAuthorityError
+		if errors.As(err, &targetErr) {
+			m.log.Warn("mtls call in error trying tls...", zap.Error(targetErr))
+			resp, err = m.client.Do(req)
+			if err != nil {
+				m.log.Error("error calling in tls", zap.Any("request", req), zap.Error(err))
+				return req, &m.unauthErr
+			}
+			return req, resp
+		}
+		m.log.Error("error calling in mtls", zap.Any("request", req), zap.Error(err))
+		return req, &m.unauthErr
+	}
 	return req, resp
 }

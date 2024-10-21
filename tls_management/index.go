@@ -18,6 +18,7 @@ const (
 
 type CredentialRetriver interface {
 	Get(ctx context.Context) (*tls.Certificate, *x509.CertPool, error)
+	Close(ctx context.Context) error
 }
 
 type TLSCheckerOpts struct {
@@ -40,6 +41,7 @@ func (o *Opts) TlsConfig(
 	)
 	g.Go(func() error {
 		cert, caCertPool, err = tlsCheckerOpts.CredentialRetriver.Get(ctx)
+		defer tlsCheckerOpts.CredentialRetriver.Close(ctx)
 		return err
 	})
 

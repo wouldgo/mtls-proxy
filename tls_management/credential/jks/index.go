@@ -97,3 +97,7 @@ func (j *jksCredentialRetriever) Get(ctx context.Context) (*tls.Certificate, *x5
 		Leaf:        x509Cert,
 	}, caCertPool, nil
 }
+
+func (*jksCredentialRetriever) Close(ctx context.Context) error {
+	return nil
+}

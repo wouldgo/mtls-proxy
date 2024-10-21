@@ -83,6 +83,11 @@ func (p *pgCredentialRetriver) Get(ctx context.Context) (*tls.Certificate, *x509
 	return nil, nil, nil
 }
 
+func (p *pgCredentialRetriver) Close(ctx context.Context) error {
+	p.log.Info("closing pg mtls credential retriever")
+	return p.conn.Close(ctx)
+}
+
 func (p *pgCredentialRetriver) recurrentTry(ctx context.Context) ([]byte, error) {
 	ticker := time.NewTicker(10 * time.Second)
 	var (

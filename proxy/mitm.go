@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/elazarl/goproxy"
 	"github.com/wouldgo/mtls-proxy/tls_management"
-	"gopkg.in/elazarl/goproxy.v1"
 )
 
 var (
@@ -29,8 +29,7 @@ func NewMitmHandler(mitmHandlerOpts *MitmHandlerOpts) (goproxy.HttpsHandler, err
 
 func (c *mitmHandler) HandleConnect(req string, ctx *goproxy.ProxyCtx) (*goproxy.ConnectAction, string) {
 	return &goproxy.ConnectAction{
-		Action: goproxy.MitmConnect.Action,
-		Hijack: goproxy.MitmConnect.Hijack,
+		Action: goproxy.ConnectMitm,
 		TLSConfig: func(host string, ctx *goproxy.ProxyCtx) (*tls.Config, error) {
 			config := tls.Config{}
 

@@ -110,3 +110,7 @@ func (f *pemCredentialRetriever) Get(ctx context.Context) (*tls.Certificate, *x5
 		Leaf:        x509Cert,
 	}, caCertPool, nil
 }
+
+func (*pemCredentialRetriever) Close(ctx context.Context) error {
+	return nil
+}

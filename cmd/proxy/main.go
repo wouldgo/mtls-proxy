@@ -11,6 +11,7 @@ import (
 	"time"
 
 	_ "github.com/breml/rootcerts"
+	"github.com/elazarl/goproxy"
 	http_ca "github.com/wouldgo/mtls-proxy/http/ca"
 	http_metrics "github.com/wouldgo/mtls-proxy/http/metrics"
 	log "github.com/wouldgo/mtls-proxy/logging"
@@ -19,7 +20,6 @@ import (
 	fs_repository "github.com/wouldgo/mtls-proxy/tls_management/certificates/fs"
 	pem_credential "github.com/wouldgo/mtls-proxy/tls_management/credential/pem"
 	"go.uber.org/zap"
-	"gopkg.in/elazarl/goproxy.v1"
 )
 
 func main() {

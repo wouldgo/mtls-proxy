@@ -9,9 +9,9 @@ import (
 
 	logging "log"
 
+	"github.com/elazarl/goproxy"
 	log "github.com/wouldgo/mtls-proxy/logging"
 	"golang.org/x/sync/errgroup"
-	"gopkg.in/elazarl/goproxy.v1"
 )
 
 var (

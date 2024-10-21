@@ -17,6 +17,16 @@
         "PEM_PRIVATE_KEY": "private_key.pem",
         "CERTS_FOLDER": "_fake_pki",
       }
+    },
+    {
+      "name": "testing",
+      "type": "go",
+      "request": "launch",
+      "mode": "auto",
+      "cwd": "${workspaceFolder}",
+      "program": "ws_example.go",
+      "env": {
+      }
     }
   ]
 }
