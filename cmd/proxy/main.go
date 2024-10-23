@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"flag"
 	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -92,7 +93,7 @@ func main() {
 
 	go func() {
 		logger.Info("starting proxy", zap.String("proxyAddr", options.proxyAddr))
-		err = theProxy.Listen(ctx, options.proxyAddr)
+		err := http.ListenAndServe(options.proxyAddr, theProxy.Handler())
 		if err != nil {
 			logger.Error("proxy closed error", zap.Error(err))
 		} else {
@@ -102,7 +103,7 @@ func main() {
 
 	go func() {
 		logger.Info("starting certificate authority server", zap.String("addr", options.caServerAddr))
-		err := caSever.Listen(ctx, options.caServerAddr)
+		err := http.ListenAndServe(options.caServerAddr, caSever.Handler())
 		if err != nil {
 			logger.Error("certificate authority closed error", zap.Error(err))
 		} else {
@@ -112,7 +113,7 @@ func main() {
 
 	go func() {
 		logger.Info("metrics server", zap.String("addr", options.metricsServerAddr))
-		err := metricsServer.Listen(ctx, options.metricsServerAddr)
+		err := http.ListenAndServe(options.metricsServerAddr, metricsServer.Handler())
 		if err != nil {
 			logger.Error("metrics server closed error", zap.Error(err))
 		} else {
@@ -125,18 +126,9 @@ func main() {
 	ctx, stop = context.WithTimeout(context.Background(), 5*time.Second)
 	logger.Info("terminating")
 	defer stop()
-	if err := theProxy.Close(ctx); err != nil {
-		logger.Error("closing proxy went in error", zap.Error(err))
-		return
-	}
-	if err = caSever.Close(ctx); err != nil {
-		logger.Error("closing certificate authority server in error", zap.Error(err))
-		return
-	}
-	if err = metricsServer.Close(ctx); err != nil {
-		logger.Error("closing metrics server in error", zap.Error(err))
-		return
-	}
+
+	//XXX tearing down eventual connections
+
 	logger.Info("bye")
 	err = logger.Close(ctx)
 	if err != nil {

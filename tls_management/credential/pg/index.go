@@ -69,53 +69,17 @@ func NewPgCredendialRetriver(
 
 func (p *pgCredentialRetriver) Get(ctx context.Context) (*tls.Certificate, *x509.CertPool, error) {
 	p.log.Info("getting credential")
-	content, err := p.get(ctx)
-	if err != nil && err == pgx.ErrNoRows {
-		p.log.Warn("no credential found. retrying...")
-		content, err = p.recurrentTry(ctx)
-	}
-
+	_, err := p.get(ctx)
 	if err != nil {
 		return nil, nil, fmt.Errorf("pg mtls credential retriever error: %w", err)
 	}
 
-	fmt.Println(content)
-	return nil, nil, nil
+	panic("hic sunt leones")
 }
 
 func (p *pgCredentialRetriver) Close(ctx context.Context) error {
 	p.log.Info("closing pg mtls credential retriever")
 	return p.conn.Close(ctx)
-}
-
-func (p *pgCredentialRetriver) recurrentTry(ctx context.Context) ([]byte, error) {
-	ticker := time.NewTicker(10 * time.Second)
-	var (
-		content []byte
-		err     error
-	)
-
-	for {
-		select {
-		case <-ticker.C:
-			{
-				content, err = p.get(ctx)
-				if err != nil && err == pgx.ErrNoRows {
-					p.log.Warn("no credential found. retrying again...")
-				} else if err != nil {
-					p.log.Error("error during recurrent getting credential: %w", zap.Error(err))
-					return nil, err
-				} else {
-					p.log.Info("credential found")
-					ticker.Stop()
-
-					return content, err
-				}
-			}
-		case <-ctx.Done():
-			return nil, context.Canceled
-		}
-	}
 }
 
 func (p *pgCredentialRetriver) get(ctx context.Context) ([]byte, error) {

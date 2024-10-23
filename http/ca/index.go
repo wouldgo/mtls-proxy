@@ -1,7 +1,6 @@
 package http_ca
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 	"time"
@@ -9,7 +8,6 @@ import (
 	log "github.com/wouldgo/mtls-proxy/logging"
 	"github.com/wouldgo/mtls-proxy/tls_management"
 	"go.uber.org/zap"
-	"golang.org/x/sync/errgroup"
 )
 
 type CertificateAuthorityServer struct {
@@ -49,20 +47,6 @@ func NewCertificateAuthorityServer(certificateAuthorityServerOpts *CertificateAu
 	return toReturn, nil
 }
 
-func (c *CertificateAuthorityServer) Listen(ctx context.Context, addr string) error {
-	g, _ := errgroup.WithContext(ctx)
-	g.Go(func() error {
-
-		return http.ListenAndServe(addr, c.router)
-	})
-
-	if err := g.Wait(); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (c *CertificateAuthorityServer) Close(ctx context.Context) error {
-	return nil
+func (c *CertificateAuthorityServer) Handler() http.Handler {
+	return c.router
 }

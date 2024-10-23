@@ -7,6 +7,7 @@ import (
 	"time"
 
 	log "github.com/wouldgo/mtls-proxy/logging"
+	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -31,21 +32,45 @@ func (o *Opts) TlsConfig(
 	ctx context.Context,
 	tlsCheckerOpts *TLSCheckerOpts,
 ) (*tls.Config, error) {
-	ctx, stop := context.WithTimeout(ctx, 20*time.Second)
+	ctx, stop := context.WithTimeout(ctx, 50*time.Second)
 	g, ctx := errgroup.WithContext(ctx)
 	defer stop()
 	var (
 		cert       *tls.Certificate
 		caCertPool *x509.CertPool
-		err        error
 	)
 	g.Go(func() error {
-		cert, caCertPool, err = tlsCheckerOpts.CredentialRetriver.Get(ctx)
-		defer tlsCheckerOpts.CredentialRetriver.Close(ctx)
+		defer tlsCheckerOpts.CredentialRetriver.Close(context.Background())
+		innerCert, innerCaCertPool, err := tlsCheckerOpts.CredentialRetriver.Get(ctx)
+		ticker := time.NewTicker(2 * time.Second)
+		defer ticker.Stop()
+	errorManagement:
+		if err != nil {
+			tlsCheckerOpts.Logger.Warn("error on getting credentials", zap.Error(err))
+		loop:
+			for {
+				select {
+				case <-ticker.C:
+					{
+						tlsCheckerOpts.Logger.Debug("trying getting credential")
+						innerCert, innerCaCertPool, err = tlsCheckerOpts.CredentialRetriver.Get(ctx)
+						goto errorManagement
+					}
+				case <-ctx.Done():
+					break loop
+				}
+			}
+		}
+
+		if err == nil {
+			cert = innerCert
+			caCertPool = innerCaCertPool
+		}
+
 		return err
 	})
 
-	err = g.Wait()
+	err := g.Wait()
 	if err != nil {
 		return nil, err
 	}
