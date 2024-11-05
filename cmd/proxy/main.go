@@ -12,11 +12,11 @@ import (
 	"time"
 
 	_ "github.com/breml/rootcerts"
-	"github.com/elazarl/goproxy"
 	http_ca "github.com/wouldgo/mtls-proxy/http/ca"
 	http_metrics "github.com/wouldgo/mtls-proxy/http/metrics"
 	log "github.com/wouldgo/mtls-proxy/logging"
 	"github.com/wouldgo/mtls-proxy/proxy"
+	"github.com/wouldgo/mtls-proxy/tier_2"
 	"github.com/wouldgo/mtls-proxy/tls_management"
 	fs_repository "github.com/wouldgo/mtls-proxy/tls_management/certificates/fs"
 	pem_credential "github.com/wouldgo/mtls-proxy/tls_management/credential/pem"
@@ -57,7 +57,7 @@ func main() {
 		logger.Fatal("starup error", zap.Error(err))
 	}
 
-	performer, err := proxy.NewMtlsPerformer(&proxy.MTLSPerformerOpts{
+	performer, err := tier_2.NewMtlsPerformer(&tier_2.MTLSPerformerOpts{
 		Log:       logger,
 		TlsConfig: config,
 	})
@@ -70,7 +70,6 @@ func main() {
 		TlsConfig:       config,
 		Handler:         handler,
 		ActionPerformer: performer,
-		Verbose:         true,
 	})
 	if err != nil {
 		logger.Fatal("starup error", zap.Error(err))
@@ -92,8 +91,18 @@ func main() {
 	}
 
 	go func() {
-		logger.Info("starting proxy", zap.String("proxyAddr", options.proxyAddr))
-		err := http.ListenAndServe(options.proxyAddr, theProxy.Handler())
+		logger.Info("staring transparent proxy", zap.String("protocol", options.transparentProxyNetwork), zap.String("addr", options.transparentProxyAddr))
+		err := theProxy.ListenAndServe(options.transparentProxyNetwork, options.transparentProxyAddr)
+		if err != nil {
+			logger.Error("transparent proxy closed error", zap.Error(err))
+		} else {
+			logger.Info("transparent proxy closed")
+		}
+	}()
+
+	go func() {
+		logger.Info("starting http/s proxy", zap.String("addr", options.proxyAddr))
+		err := http.ListenAndServe(options.proxyAddr, theProxy)
 		if err != nil {
 			logger.Error("proxy closed error", zap.Error(err))
 		} else {
@@ -168,7 +177,7 @@ func tlsConfig(
 	return tlsConfig, nil
 }
 
-func handler(logger *log.Log, options *options) (goproxy.HttpsHandler, tls_management.CertificateAuthorityForge, error) {
+func handler(logger *log.Log, options *options) (proxy.HttpsHandler, tls_management.CertificateAuthorityForge, error) {
 	repository, err := fs_repository.NewFileSystemCertificateRepository(&fs_repository.FileSystemCertificateRepositoryOpts{
 		Log:  logger,
 		Opts: options.fsCerts,

@@ -16,17 +16,21 @@ const (
 )
 
 var (
-	proxyListenAddrEnv, proxyListenAddrEnvSet     = os.LookupEnv("PROXY_LISTEN_ADDR")
-	caServerAddrEnv, caServerAddrEnvSet           = os.LookupEnv("CA_LISTEN_ADDR")
-	metricsServerAddrEnv, metricsServerAddrEnvSet = os.LookupEnv("METRICS_LISTEN_ADDR")
+	transparentProxyNetworkEnv, transparentProxyNetworkEnvSet = os.LookupEnv("TRANSPARENT_PROXY_NETWORK")
+	transparentProxyAddrEnv, transparentProxyAddrEnvSet       = os.LookupEnv("TRANSPARENT_PROXY_ADDR")
+	proxyListenAddrEnv, proxyListenAddrEnvSet                 = os.LookupEnv("PROXY_LISTEN_ADDR")
+	caServerAddrEnv, caServerAddrEnvSet                       = os.LookupEnv("CA_LISTEN_ADDR")
+	metricsServerAddrEnv, metricsServerAddrEnvSet             = os.LookupEnv("METRICS_LISTEN_ADDR")
 
-	proxyListenAddr, caServerAddr, metricsServerAddr string
+	transparentProxyNetwork, transparentProxyAddr, proxyListenAddr, caServerAddr, metricsServerAddr string
 )
 
 func init() {
-	flag.StringVar(&proxyListenAddr, "proxy-listen-addr", ":3000", "proxy listen address")
-	flag.StringVar(&caServerAddr, "ca-listen-addr", ":3001", "certificate authority server listen address")
-	flag.StringVar(&metricsServerAddr, "metrics-listen-addr", ":3002", "metrics server listen address")
+	flag.StringVar(&transparentProxyNetwork, "transparent-proxy-network", "tcp", "transparent proxy network")
+	flag.StringVar(&transparentProxyAddr, "transparent-proxy-addr", ":3000", "transparent proxy address")
+	flag.StringVar(&proxyListenAddr, "proxy-listen-addr", ":3001", "proxy listen address")
+	flag.StringVar(&caServerAddr, "ca-listen-addr", ":3002", "certificate authority server listen address")
+	flag.StringVar(&metricsServerAddr, "metrics-listen-addr", ":3003", "metrics server listen address")
 }
 
 type options struct {
@@ -37,7 +41,7 @@ type options struct {
 	pemCred *pem_credential.Opts
 	fsCerts *fs_certificates.Opts
 
-	proxyAddr, caServerAddr, metricsServerAddr string
+	transparentProxyNetwork, transparentProxyAddr, proxyAddr, caServerAddr, metricsServerAddr string
 }
 
 func newOptions() (*options, error) {
@@ -66,6 +70,14 @@ func newOptions() (*options, error) {
 		return nil, fmt.Errorf(optionsErrStr, err)
 	}
 
+	if transparentProxyNetworkEnvSet {
+		transparentProxyNetwork = transparentProxyNetworkEnv
+	}
+
+	if transparentProxyAddrEnvSet {
+		transparentProxyAddr = transparentProxyAddrEnv
+	}
+
 	if proxyListenAddrEnvSet {
 		proxyListenAddr = proxyListenAddrEnv
 	}
@@ -86,8 +98,10 @@ func newOptions() (*options, error) {
 		pemCred: pemCredOpts,
 		fsCerts: fsCertsOpts,
 
-		proxyAddr:         proxyListenAddr,
-		caServerAddr:      caServerAddr,
-		metricsServerAddr: metricsServerAddr,
+		transparentProxyNetwork: transparentProxyNetwork,
+		transparentProxyAddr:    transparentProxyAddr,
+		proxyAddr:               proxyListenAddr,
+		caServerAddr:            caServerAddr,
+		metricsServerAddr:       metricsServerAddr,
 	}, nil
 }
