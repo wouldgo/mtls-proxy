@@ -29,7 +29,7 @@ type Proxy struct {
 	tlsConfig *tls.Config
 	transport *http.Transport
 
-	handler          HttpsHandler
+	handler          TLSHandle
 	actionPerformer  Performer
 	websocketHandler *websocketHandler
 }
@@ -52,7 +52,7 @@ func NewProxy(opts *ProxyConfig) (*Proxy, error) {
 			Proxy:           http.ProxyFromEnvironment,
 		},
 
-		handler:         opts.Handler,
+		handler:         opts.Handler.HandleConnect(),
 		actionPerformer: opts.ActionPerformer,
 		websocketHandler: &websocketHandler{
 			logger: opts.Logger,
@@ -157,10 +157,8 @@ func (p *Proxy) handleHttp(w http.ResponseWriter, r *http.Request) error {
 }
 
 func (p *Proxy) handleTlsConn(fqdn string, proxyClient net.Conn) error {
-	tlsHandle := p.handler.HandleConnect()
-
 	p.logger.Debug("creating tls config", zap.String("fqdn", fqdn))
-	tlsConfig, err := tlsHandle(fqdn)
+	tlsConfig, err := p.handler(fqdn)
 	if err != nil {
 		return fmt.Errorf("error on tls handling: %w", err)
 	}
@@ -172,7 +170,19 @@ func (p *Proxy) handleTlsConn(fqdn string, proxyClient net.Conn) error {
 		rawClientTls := tls.Server(proxyClient, tlsConfig)
 		// XXX leak on not closing proxyClient?
 		// TODO: Allow Server.Close() mechanism to shut down this connection as nicely as possible
-		defer rawClientTls.Close()
+		defer func() {
+			p.logger.Info("closing tls connection")
+			err := proxyClient.Close()
+			if err != nil {
+				p.logger.Error("closing proxing client in error", zap.Error(err))
+			}
+
+			err = rawClientTls.Close()
+			if err != nil {
+				p.logger.Error("closing local tls connection client in error", zap.Error(err))
+			}
+		}()
+
 		if err := rawClientTls.HandshakeContext(context.TODO()); err != nil {
 			p.logger.Warn("cannot tls handshake for proxied client", zap.String("fqdn", fqdn),
 				zap.Any("remote_addr", proxyClient.RemoteAddr()), zap.Any("local_addr", proxyClient.LocalAddr()),

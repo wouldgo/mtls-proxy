@@ -35,7 +35,9 @@ func NewMitmHandler(mitmHandlerOpts *MitmHandlerOpts) (HttpsHandler, error) {
 
 func (c *mitmHandler) HandleConnect() TLSHandle {
 	return func(host string) (*tls.Config, error) {
-		config := tls.Config{}
+		config := tls.Config{
+			MinVersion: tls.VersionTLS12,
+		}
 
 		onlyHost, _, err := net.SplitHostPort(host)
 		if err != nil {
