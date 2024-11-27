@@ -4,10 +4,10 @@ function do_it () {
   local CA_CERTIFICATE_FOLDER
   local LOCAL_CA_FILE_PATH
 
+  local CERT_FILENAME
+
   local FULL_CA_CERTIFICATES_PATH
   local CA_FILE_PATH
-
-  local CERT_FILENAME
 
   CA_CERTIFICATE_FOLDER="mtls_proxy_ca"
   LOCAL_CA_FILE_PATH=${1:-_fake_pki/_ca/certificate.pem}
