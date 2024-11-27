@@ -92,7 +92,10 @@ func (p *Proxy) ServeConn(conn net.Conn) error {
 	}
 	p.logger.Debug("trasparent proxying", zap.String("remoteHost", remoteHost))
 
-	connRewinder.Rewind()
+	err = connRewinder.Rewind()
+	if err != nil {
+		return fmt.Errorf("net.Conn rewind error: %w", err)
+	}
 	return p.handleTlsConn(remoteHost, connRewinder)
 }
 

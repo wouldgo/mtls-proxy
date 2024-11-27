@@ -2,22 +2,25 @@ package proxy
 
 import (
 	"bytes"
+	"fmt"
 	"net"
 	"time"
 )
 
 // net.Conn with rewind functionality
 type connRewinder struct {
-	conn   net.Conn
-	buffer *bytes.Buffer
+	rewindable bool
+	conn       net.Conn
+	buffer     *bytes.Buffer
 }
 
 var _ net.Conn = (*connRewinder)(nil)
 
 func newConnRewinder(conn net.Conn) (*connRewinder, error) {
 	return &connRewinder{
-		conn:   conn,
-		buffer: &bytes.Buffer{},
+		rewindable: true,
+		conn:       conn,
+		buffer:     &bytes.Buffer{},
 	}, nil
 }
 
@@ -53,14 +56,24 @@ func (cw *connRewinder) Read(p []byte) (int, error) {
 		return n, err
 	}
 
-	// write read data from connection to buffer
-	cw.buffer.Write(p[:n])
-	return n, nil
+	if cw.rewindable {
+		// write read data from connection to buffer
+		cw.buffer.Write(p[:n])
+		return n, nil
+	}
+
+	return n, err
 }
 
 // rewinds read data
-func (cw *connRewinder) Rewind() {
+func (cw *connRewinder) Rewind() error {
+	if !cw.rewindable {
+		return fmt.Errorf("no more rewind supported")
+	}
+
 	cw.buffer = bytes.NewBuffer(cw.buffer.Bytes())
+	cw.rewindable = !cw.rewindable
+	return nil
 }
 
 func (cw *connRewinder) Write(p []byte) (int, error) {
