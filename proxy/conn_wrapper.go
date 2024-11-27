@@ -68,7 +68,7 @@ func (cw *connRewinder) Read(p []byte) (int, error) {
 // rewinds read data
 func (cw *connRewinder) Rewind() error {
 	if !cw.rewindable {
-		return fmt.Errorf("no more rewind supported")
+		return fmt.Errorf("rewind is no more permitted")
 	}
 
 	cw.buffer = bytes.NewBuffer(cw.buffer.Bytes())
