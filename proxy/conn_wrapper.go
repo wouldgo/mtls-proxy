@@ -2,25 +2,63 @@ package proxy
 
 import (
 	"bytes"
-	"fmt"
+	"io"
 	"net"
 	"time"
 )
 
-// net.Conn with rewind functionality
-type connRewinder struct {
-	rewindable bool
-	conn       net.Conn
-	buffer     *bytes.Buffer
+var (
+	_ net.Conn = (*connRewinder)(nil)
+	_ net.Conn = (*innerConn)(nil)
+)
+
+type innerConn struct {
+	reader io.Reader
+	conn   net.Conn
 }
 
-var _ net.Conn = (*connRewinder)(nil)
+func (ic *innerConn) LocalAddr() net.Addr {
+	return ic.conn.LocalAddr()
+}
+
+func (ic *innerConn) RemoteAddr() net.Addr {
+	return ic.conn.RemoteAddr()
+}
+
+func (ic *innerConn) SetDeadline(t time.Time) error {
+	return ic.conn.SetDeadline(t)
+}
+
+func (ic *innerConn) SetReadDeadline(t time.Time) error {
+	return ic.conn.SetReadDeadline(t)
+}
+
+func (ic *innerConn) SetWriteDeadline(t time.Time) error {
+	return ic.conn.SetWriteDeadline(t)
+}
+
+func (ic *innerConn) Read(p []byte) (int, error) {
+	return ic.reader.Read(p)
+}
+
+func (ic *innerConn) Write(p []byte) (int, error) {
+	return ic.conn.Write(p)
+}
+
+func (ic *innerConn) Close() error {
+	return ic.conn.Close()
+}
+
+// net.Conn with rewind functionality
+type connRewinder struct {
+	conn   net.Conn
+	buffer *bytes.Buffer
+}
 
 func newConnRewinder(conn net.Conn) (*connRewinder, error) {
 	return &connRewinder{
-		rewindable: true,
-		conn:       conn,
-		buffer:     &bytes.Buffer{},
+		conn:   conn,
+		buffer: &bytes.Buffer{},
 	}, nil
 }
 
@@ -45,35 +83,29 @@ func (cw *connRewinder) SetWriteDeadline(t time.Time) error {
 }
 
 func (cw *connRewinder) Read(p []byte) (int, error) {
-	//reading data from buffer, if present
-	if cw.buffer.Len() > 0 {
-		return cw.buffer.Read(p)
-	}
-
 	//reading data from connection
 	n, err := cw.conn.Read(p)
 	if err != nil {
 		return n, err
 	}
 
-	if cw.rewindable {
-		// write read data from connection to buffer
-		cw.buffer.Write(p[:n])
-		return n, nil
+	// write read data from connection to buffer
+	_, err = cw.buffer.Write(p[:n])
+	if err != nil {
+		return n, err
 	}
 
-	return n, err
+	return n, nil
 }
 
 // rewinds read data
-func (cw *connRewinder) Rewind() error {
-	if !cw.rewindable {
-		return fmt.Errorf("rewind is no more permitted")
+func (cw *connRewinder) Rewind() (net.Conn, error) {
+	toReturn := &innerConn{
+		reader: io.MultiReader(cw.buffer, cw.conn),
+		conn:   cw.conn,
 	}
 
-	cw.buffer = bytes.NewBuffer(cw.buffer.Bytes())
-	cw.rewindable = !cw.rewindable
-	return nil
+	return toReturn, nil
 }
 
 func (cw *connRewinder) Write(p []byte) (int, error) {

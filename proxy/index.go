@@ -82,21 +82,21 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (p *Proxy) ServeConn(conn net.Conn) error {
-	connRewinder, err := newConnRewinder(conn)
+	connReplay, err := newConnRewinder(conn)
 	if err != nil {
 		return fmt.Errorf("error creating net.Conn rewinder wrapper: %w", err)
 	}
-	remoteHost, err := getServerName(connRewinder)
+	remoteHost, err := getServerName(connReplay)
 	if err != nil {
 		return fmt.Errorf("error extracting hostname: %w", err)
 	}
 	p.logger.Debug("trasparent proxying", zap.String("remoteHost", remoteHost))
 
-	err = connRewinder.Rewind()
+	newConn, err := connReplay.Rewind()
 	if err != nil {
 		return fmt.Errorf("net.Conn rewind error: %w", err)
 	}
-	return p.handleTlsConn(remoteHost, connRewinder)
+	return p.handleTlsConn(remoteHost, newConn)
 }
 
 func (p *Proxy) Serve(l net.Listener) error {
